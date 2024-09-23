@@ -23,7 +23,7 @@ jobs:
         run: |
           docker build -t whatsapp-bot .
 
-      # Step 4: Run the Docker container in detached mode
+      # Step 4: Run the Docker container
       - name: Run Docker Container
         run: |
           docker run -d -p 3000:3000 whatsapp-bot
@@ -35,12 +35,11 @@ jobs:
           echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list && \
           sudo apt-get update && sudo apt-get install ngrok
 
-      # Step 6: Start ngrok with the authtoken
+      # Step 6: Start ngrok with your authtoken and domain
       - name: Start ngrok
         run: |
           ngrok authtoken ${{ secrets.NGROK_AUTHTOKEN }}
-          nohup ngrok http 3000 &
-          sleep 5  # Add a small delay to ensure ngrok is fully up
+          nohup ngrok http 3000 --domain=curiously-chief-finch.ngrok-free.app &
 
       # Step 7: Get the ngrok URL
       - name: Get ngrok URL
