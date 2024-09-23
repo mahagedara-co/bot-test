@@ -1,4 +1,4 @@
-name: Deploy WhatsApp Bot
+name: WhatsApp Bot Deployment
 
 on:
   push:
@@ -6,32 +6,43 @@ on:
       - main
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      # Step 1: Checkout the repository
+      - name: Checkout Code
         uses: actions/checkout@v2
 
+      # Step 2: Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Log in to Heroku Docker registry
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      # Step 3: Build the Docker image
+      - name: Build Docker Image
         run: |
-          echo "machine api.heroku.com
-          login ${{ secrets.HEROKU_EMAIL }}
-          password ${{ secrets.HEROKU_API_KEY }}" > ~/.netrc
-          echo "machine git.heroku.com
-          login ${{ secrets.HEROKU_EMAIL }}
-          password ${{ secrets.HEROKU_API_KEY }}" >> ~/.netrc
+          docker build -t whatsapp-bot .
 
-      - name: Build Docker container
-        run: docker build -t whatsapp-bot .
-
-      - name: Push Docker container to Heroku
+      # Step 4: Run the Docker container in detached mode
+      - name: Run Docker Container
         run: |
-          heroku container:login
-          heroku container:push web --app ${{ secrets.HEROKU_APP_NAME }}
-          heroku container:release web --app ${{ secrets.HEROKU_APP_NAME }}
+          docker run -d -p 3000:3000 whatsapp-bot
+
+      # Step 5: Download ngrok for exposing localhost
+      - name: Install ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && \
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list && \
+          sudo apt-get update && sudo apt-get install ngrok
+
+      # Step 6: Expose port 3000 using ngrok
+      - name: Start ngrok
+        run: |
+          nohup ngrok http 3000 &
+
+      # Step 7: Get the ngrok URL and display it in the workflow logs
+      - name: Get ngrok URL
+        run: |
+          sleep 5
+          curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+
