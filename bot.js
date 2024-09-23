@@ -1,33 +1,51 @@
-const Balveis = require('balveis-sonline');
+const { default: makeWASocket, useSingleFileAuthState } = require('@adiwajshing/baileys');
 const express = require('express');
 const qrcode = require('qrcode');
-const path = require('path');
+const { unlinkSync } = require('fs');
 
+// WhatsApp authentication setup
+const { state, saveState } = useSingleFileAuthState('./auth_info.json');
+
+// Express app to serve the QR code
 const app = express();
 let qrCodeData = ''; // Store QR code
 
-const bot = new Balveis.Client();
-
-// Generate QR code when prompted
-bot.on('qr', (qr) => {
-    console.log('QR Code generated, displaying on the web page...');
-    qrcode.toDataURL(qr, (err, url) => {
-        if (err) throw err;
-        qrCodeData = url; // Store the QR code data as a base64 image
+// Function to start the WhatsApp bot
+const startBot = async () => {
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false,
     });
-});
 
-// WhatsApp bot ready
-bot.on('ready', () => {
-    console.log('Bot is ready and connected to WhatsApp!');
-});
+    // Event listener to capture and serve the QR code
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, qr } = update;
+        if (qr) {
+            console.log('New QR code generated');
+            qrCodeData = await qrcode.toDataURL(qr);
+        }
+        if (connection === 'open') {
+            console.log('Connected to WhatsApp!');
+            qrCodeData = ''; // Clear QR code after successful login
+        }
+    });
 
-// Respond with 'Hello' to every message
-bot.on('message', (msg) => {
-    bot.sendMessage(msg.from, 'Hello!');
-});
+    // Automatically save the authentication state when it changes
+    sock.ev.on('creds.update', saveState);
 
-// Serve a webpage to show the QR code for scanning
+    // Respond to all messages with "Hello"
+    sock.ev.on('messages.upsert', (m) => {
+        const msg = m.messages[0];
+        if (!msg.key.fromMe) {
+            sock.sendMessage(msg.key.remoteJid, { text: 'Hello!' });
+        }
+    });
+};
+
+// Start the WhatsApp bot
+startBot();
+
+// Web server to show the QR code
 app.get('/', (req, res) => {
     if (qrCodeData) {
         res.send(`
@@ -39,26 +57,11 @@ app.get('/', (req, res) => {
             </html>
         `);
     } else {
-        res.send(`
-            <html>
-                <body>
-                    <h1>Waiting for QR code...</h1>
-                </body>
-            </html>
-        `);
+        res.send('<h1>Bot is connected, no QR code available.</h1>');
     }
 });
 
-// Static files serving
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Start the bot and web server
-(async () => {
-    await bot.initialize(); // Initialize the bot
-    console.log('WhatsApp bot initialized successfully.');
-    
-    // Start the web server on port 3000
-    app.listen(3000, () => {
-        console.log('Web server running on http://localhost:3000');
-    });
-})();
+// Start the web server
+app.listen(3000, () => {
+    console.log('Web server running on http://localhost:3000');
+});
