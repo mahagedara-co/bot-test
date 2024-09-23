@@ -28,21 +28,21 @@ jobs:
         run: |
           docker run -d -p 3000:3000 whatsapp-bot
 
-      # Step 5: Download ngrok for exposing localhost
+      # Step 5: Install ngrok
       - name: Install ngrok
         run: |
           curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null && \
           echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list && \
           sudo apt-get update && sudo apt-get install ngrok
 
-      # Step 6: Expose port 3000 using ngrok
+      # Step 6: Start ngrok with the authtoken
       - name: Start ngrok
         run: |
+          ngrok authtoken ${{ secrets.NGROK_AUTHTOKEN }}
           nohup ngrok http 3000 &
 
-      # Step 7: Get the ngrok URL and display it in the workflow logs
+      # Step 7: Get the ngrok URL
       - name: Get ngrok URL
         run: |
           sleep 5
           curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
-
