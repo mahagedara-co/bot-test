@@ -40,6 +40,7 @@ jobs:
         run: |
           ngrok authtoken ${{ secrets.NGROK_AUTHTOKEN }}
           nohup ngrok http 3000 &
+          sleep 5  # Add a small delay to ensure ngrok is fully up
 
       # Step 7: Get the ngrok URL
       - name: Get ngrok URL
